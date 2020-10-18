@@ -1,3 +1,4 @@
+import { MeshGPUInstancing } from './ext-mesh-gpu-instancing';
 import { DracoMeshCompression } from './khr-draco-mesh-compression';
 import { LightsPunctual } from './khr-lights-punctual';
 import { MaterialsClearcoat } from './khr-materials-clearcoat';
@@ -26,6 +27,12 @@ export const KHRONOS_EXTENSIONS = [
 	TextureTransform,
 ];
 
+export const ALL_EXTENSIONS = [
+	MeshGPUInstancing,
+	...KHRONOS_EXTENSIONS,
+];
+
+export * from './ext-mesh-gpu-instancing';
 export * from './khr-draco-mesh-compression';
 export * from './khr-lights-punctual';
 export * from './khr-materials-clearcoat';
