@@ -8,6 +8,7 @@ import { AOOptions, CenterOptions, DedupOptions, PartitionOptions, SequenceOptio
 import { inspect } from './inspect';
 import { merge } from './merge';
 import { ETC1S_DEFAULTS, Filter, Mode, UASTC_DEFAULTS, toktx } from './toktx';
+import { WebPOptions, towebp } from './towebp';
 import { formatBytes } from './util';
 import { validate } from './validate';
 
@@ -428,6 +429,24 @@ textures where the quality is sufficient.`.trim()),
 		const doc = await io.read(args.input as string)
 			.setLogger(logger as unknown as Logger)
 			.transform(toktx({mode: Mode.UASTC, ...options}));
+		io.write(args.output as string, doc);
+	});
+
+// WEBP
+program
+	.command('webp', 'Compress textures with WebP')
+	.help('Compress textures with WebP.')
+	.argument('<input>', INPUT_DESC)
+	.argument('<output>', OUTPUT_DESC)
+	.option(
+		'--slots <slots>',
+		'Texture slots to compress (glob expression)',
+		{validator: program.STRING, default: '*'}
+	)
+	.action(async ({args, options, logger}) => {
+		const doc = await io.read(args.input as string)
+			.setLogger(logger as unknown as Logger)
+			.transform(towebp(options as unknown as WebPOptions));
 		io.write(args.output as string, doc);
 	});
 

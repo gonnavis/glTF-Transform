@@ -61,7 +61,7 @@ export const toktx = function (options): Transform {
 			throw new Error('Command "toktx" not found. Please install KTX-Software, from:\n\nhttps://github.com/KhronosGroup/KTX-Software');
 		}
 
-		doc.createExtension(TextureBasisu);
+		doc.createExtension(TextureBasisu).setRequired(true);
 
 		let numCompressed = 0;
 
