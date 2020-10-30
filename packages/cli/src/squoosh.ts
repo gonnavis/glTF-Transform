@@ -40,7 +40,8 @@ interface SquooshOptions {
 	slots?: string;
 	formats?: string;
 	flags: string[];
-	outExtension?: string;
+	outExtension: string;
+	outMimeType: string;
 }
 
 export const webp = function (options: WebPOptions = WEBP_DEFAULT_OPTIONS): Transform {
@@ -48,36 +49,38 @@ export const webp = function (options: WebPOptions = WEBP_DEFAULT_OPTIONS): Tran
 
 	return (doc: Document): void => {
 		doc.createExtension(TextureWebP).setRequired(true);
-
 		return squoosh({
 			formats: options.formats,
 			slots: options.slots,
 			flags: ['--webp', `"${JSON.stringify({quality: options.quality})}"`],
-			outExtension: 'webp'
+			outExtension: 'webp',
+			outMimeType: 'image/webp',
 		})(doc);
 	};
 }
 
 export const mozjpeg = function (options: MozJPEGOptions = MOZJPEG_DEFAULT_OPTIONS): Transform {
 	options = {...MOZJPEG_DEFAULT_OPTIONS, ...options};
-
 	return (doc: Document): void => {
 		return squoosh({
 			formats: options.formats,
 			slots: options.slots,
-			flags: ['--mozjpeg', `"${JSON.stringify({quality: options.quality})}"`]
+			flags: ['--mozjpeg', `"${JSON.stringify({quality: options.quality})}"`],
+			outExtension: 'jpg',
+			outMimeType: 'image/jpeg',
 		})(doc);
 	};
 }
 
 export const oxipng = function (options: OxiPNGOptions = OXIPNG_DEFAULT_OPTIONS): Transform {
 	options = {...OXIPNG_DEFAULT_OPTIONS, ...options};
-
 	return (doc: Document): void => {
 		return squoosh({
 			formats: options.formats,
 			slots: options.slots,
-			flags: ['--oxipng', `"${JSON.stringify({effort: options.effort})}"`]
+			flags: ['--oxipng', `"${JSON.stringify({effort: options.effort})}"`],
+			outExtension: 'png',
+			outMimeType: 'image/png',
 		})(doc);
 	};
 }
@@ -112,14 +115,14 @@ const squoosh = function (options: SquooshOptions): Transform {
 				}
 
 				// Create temporary in/out paths for the 'squoosh-cli' tool.
-				const extension = texture.getURI()
+				const inExtension = texture.getURI()
 					? FileUtils.extension(texture.getURI())
 					: ImageUtils.mimeTypeToExtension(texture.getMimeType());
-				const inPath = tmp.tmpNameSync({postfix: '.' + extension});
+				const inPath = tmp.tmpNameSync({postfix: '.' + inExtension});
+				const outDir = tmp.dirSync().name;
 				const outPath = options.outExtension
-					? inPath.replace('.' + extension, '.' + options.outExtension)
-					: inPath;
-				const outDir = path.dirname(outPath);
+					? path.join(outDir, path.basename(inPath).replace('.' + inExtension, '.' + options.outExtension))
+					: path.join(outDir, path.basename(inPath));
 
 				const inBytes = texture.getImage().byteLength;
 				fs.writeFileSync(inPath, Buffer.from(texture.getImage()));
@@ -134,16 +137,17 @@ const squoosh = function (options: SquooshOptions): Transform {
 					throw error || new Error('Texture compression failed');
 				}
 
-				texture.setImage(BufferUtils.trim(fs.readFileSync(outPath)));
-				if (options.outExtension) texture.setMimeType('image/' + options.outExtension);
-				if (options.outExtension && texture.getURI()) {
+				texture
+					.setImage(BufferUtils.trim(fs.readFileSync(outPath)))
+					.setMimeType('image/' + options.outExtension);
+				if (texture.getURI()) {
 					texture.setURI(FileUtils.basename(texture.getURI()) + '.' + options.outExtension);
 				}
 
 				numCompressed++;
 
 				const outBytes = texture.getImage().byteLength;
-				logger.info(`• Texture ${textureLabel} (${textureSlots.join(', ')}) ${formatBytes(inBytes)} → ${formatBytes(outBytes)} bytes.`);
+				logger.info(`• Texture ${textureLabel} (${textureSlots.join(', ')}) ${formatBytes(inBytes)} → ${formatBytes(outBytes)}.`);
 			});
 
 		if (numCompressed === 0) {
