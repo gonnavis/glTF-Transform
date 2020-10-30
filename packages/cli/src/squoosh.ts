@@ -15,26 +15,33 @@ tmp.setGracefulCleanup();
 // Configuration: https://github.com/GoogleChromeLabs/squoosh/blob/visdf/cli/src/codecs.js
 
 export interface WebPOptions {
+	rounds: number;
+	distance: number;
 	slots?: string;
 	formats?: string;
 	quality?: number;
 }
 
 export interface MozJPEGOptions {
+	rounds: number;
+	distance: number;
 	slots?: string;
 	formats?: string;
 	quality?: number;
 }
 
 export interface OxiPNGOptions {
+	rounds: number;
+	distance: number;
 	slots?: string;
 	formats?: string;
 	effort?: number;
 }
 
-const WEBP_DEFAULT_OPTIONS: WebPOptions = {slots: '*'};
-const MOZJPEG_DEFAULT_OPTIONS: MozJPEGOptions = {slots: '*', formats: 'jpeg'};
-const OXIPNG_DEFAULT_OPTIONS: OxiPNGOptions = {slots: '*', formats: 'png'};
+const DEFAULT_OPTIONS = {rounds: 6, distance: 1.4};
+const WEBP_DEFAULT_OPTIONS: WebPOptions = {slots: '*', ...DEFAULT_OPTIONS};
+const MOZJPEG_DEFAULT_OPTIONS: MozJPEGOptions = {slots: '*', formats: 'jpeg', ...DEFAULT_OPTIONS};
+const OXIPNG_DEFAULT_OPTIONS: OxiPNGOptions = {slots: '*', formats: 'png', ...DEFAULT_OPTIONS};
 
 interface SquooshOptions {
 	slots?: string;
@@ -42,6 +49,13 @@ interface SquooshOptions {
 	flags: string[];
 	outExtension: string;
 	outMimeType: string;
+}
+
+function createDefaultFlags(options: {distance: number; rounds: number}): string[] {
+	return [
+		'--optimizer-butteraugli-target', options.distance + '',
+		'--max-optimizer-rounds', options.rounds + '',
+	];
 }
 
 export const webp = function (options: WebPOptions = WEBP_DEFAULT_OPTIONS): Transform {
@@ -52,7 +66,7 @@ export const webp = function (options: WebPOptions = WEBP_DEFAULT_OPTIONS): Tran
 		return squoosh({
 			formats: options.formats,
 			slots: options.slots,
-			flags: ['--webp', `"${JSON.stringify({quality: options.quality})}"`],
+			flags: ['--webp', `"${JSON.stringify({quality: options.quality})}"`, ...createDefaultFlags(options)],
 			outExtension: 'webp',
 			outMimeType: 'image/webp',
 		})(doc);
@@ -65,7 +79,7 @@ export const mozjpeg = function (options: MozJPEGOptions = MOZJPEG_DEFAULT_OPTIO
 		return squoosh({
 			formats: options.formats,
 			slots: options.slots,
-			flags: ['--mozjpeg', `"${JSON.stringify({quality: options.quality})}"`],
+			flags: ['--mozjpeg', `"${JSON.stringify({quality: options.quality})}"`, ...createDefaultFlags(options)],
 			outExtension: 'jpg',
 			outMimeType: 'image/jpeg',
 		})(doc);
@@ -78,7 +92,7 @@ export const oxipng = function (options: OxiPNGOptions = OXIPNG_DEFAULT_OPTIONS)
 		return squoosh({
 			formats: options.formats,
 			slots: options.slots,
-			flags: ['--oxipng', `"${JSON.stringify({effort: options.effort})}"`],
+			flags: ['--oxipng', `"${JSON.stringify({effort: options.effort})}"`, ...createDefaultFlags(options)],
 			outExtension: 'png',
 			outMimeType: 'image/png',
 		})(doc);

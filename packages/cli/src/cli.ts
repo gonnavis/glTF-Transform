@@ -262,17 +262,19 @@ program
 	});
 
 const BASIS_SUMMARY = `
-(EXPERIMENTAL) Compresses textures in the given file to .ktx2 GPU textures
-using the {VARIANT} Basis Universal bitstream. GPU
-textures offer faster GPU upload and less GPU memory consumption than
-traditional PNG or JPEG textures, which are fully uncompressed in GPU memory.
-GPU texture formats require more attention to compression settings to get
-similar visual results.
+Compresses textures in the given file to .ktx2 GPU textures using the
+{VARIANT} Basis Universal bitstream. GPU textures offer faster GPU upload
+and less GPU memory consumption than traditional PNG or JPEG textures,
+which are fully uncompressed in GPU memory. GPU texture formats require
+more attention to compression settings to get similar visual results.
 
 {DETAILS}
 
 Documentation:
-https://gltf-transform.donmccurdy.com/extensions.html#khr_texture_basisu-experimental
+https://gltf-transform.donmccurdy.com/extensions.html#khr_texture_basisu
+
+Dependencies:
+KTX-Software (https://github.com/KhronosGroup/KTX-Software/)
 `;
 
 // ETC1S
@@ -280,14 +282,12 @@ program
 	.command('etc1s', 'KTX + Basis ETC1S texture compression')
 	.help(
 		BASIS_SUMMARY
-			.replace('{VARIANT}', 'ETC1S (lower size, lower quality)')
+			.replace('{VARIANT}', 'ETC1S')
 			.replace('{DETAILS}', `
-ETC1S, one of the two Basis Universal bitstreams, offers lower size
-and lower quality than UASTC. In some cases it may be useful to
-increase the resolution of the texture slightly, to minimize compression
-artifacts while still retaining a smaller filesize. Details of this incomplete
-glTF extension are still being worked out, particularly in regard to normal
-maps. In the meantime, I recommend choosing less aggressive compression
+ETC1S, one of the two Basis Universal bitstreams, offers lower size and lower
+quality than UASTC. In some cases it may be useful to increase the resolution
+of the texture slightly, to minimize compression artifacts while still
+retaining a smaller filesize. Consider using less aggressive compression
 settings for normal maps than for other texture types: you may want to use
 UASTC for normal maps and ETC1S for other textures, for example.`.trim()),
 		{sectionName: 'SUMMARY'}
@@ -361,12 +361,12 @@ program
 	.command('uastc', 'KTX + Basis UASTC texture compression')
 	.help(
 		BASIS_SUMMARY
-			.replace('{VARIANT}', 'UASTC (higher size, higher quality)')
+			.replace('{VARIANT}', 'UASTC')
 			.replace('{DETAILS}', `
 UASTC, one of the two Basis Universal bitstreams, offers higher size and higher
 quality than ETC1S. While it is suitable for all texture types, you may find it
-useful to apply UASTC only where higher quality is necessary, and apply ETC1S for
-textures where the quality is sufficient.`.trim()),
+useful to apply UASTC only where higher quality is necessary, and apply ETC1S
+for textures where the quality is sufficient.`.trim()),
 		{sectionName: 'SUMMARY'}
 	)
 	.argument('<input>', INPUT_DESC)
@@ -432,10 +432,21 @@ textures where the quality is sufficient.`.trim()),
 		io.write(args.output as string, doc);
 	});
 
+const SQUOOSH_SUMMARY = `
+Compresses textures with {VARIANT}, using Squoosh CLI. Reduces transmitted file
+size. Compared to GPU texture compression like KTX/Basis, PNG/JPEG/WebP must
+be fully decompressed in GPU memory — this makes texture GPU upload much
+slower, and may consume 4-8x more GPU memory. However, traditional compression
+methods are typically more forgiving, and require less tuning to achieve
+optimal visual and filesize results.
+
+Dependencies:
+@squoosh/cli (https://www.npmjs.com/package/@squoosh/cli)`.trim();
+
 // WEBP
 program
 	.command('webp', 'WebP texture compression')
-	.help('WebP texture compression.')
+	.help(SQUOOSH_SUMMARY.replace('{VARIANT}', 'WebP'))
 	.argument('<input>', INPUT_DESC)
 	.argument('<output>', OUTPUT_DESC)
 	.option(
@@ -445,13 +456,23 @@ program
 	)
 	.option(
 		'--quality <quality>',
-		'Quality, 0–100. Defaults to automatic optimization.',
+		'Quality, 0–100. Defaults to auto optimizer.',
 		{validator: program.NUMBER}
 	)
 	.option(
 		'--slots <slots>',
 		'Texture slots to include (glob)',
 		{validator: program.STRING, default: '*'}
+	)
+	.option(
+		'--optimizer-max-rounds <rounds>',
+		'Maximum number of rounds to use for auto optimizer.',
+		{validator: program.NUMBER, default: 6}
+	)
+	.option(
+		'--optimizer-distance <distance>',
+		'Target Butteraugli distance for auto optimizer.',
+		{validator: program.NUMBER, default: 1.4}
 	)
 	.action(async ({args, options, logger}) => {
 		const doc = await io.read(args.input as string)
@@ -463,13 +484,13 @@ program
 // OXIPNG
 program
 	.command('oxipng', 'OxiPNG texture compression')
-	.help('OxiPNG texture compression.')
+	.help(SQUOOSH_SUMMARY.replace('{VARIANT}', 'OxiPNG'))
 	.argument('<input>', INPUT_DESC)
 	.argument('<output>', OUTPUT_DESC)
 	.option(
 		'--effort <effort>',
-		'Effort',
-		{validator: [0, 1, 2, 3], default: 2}
+		'Effort, 0 – 3. Default 2.',
+		{validator: program.NUMBER}
 	)
 	.option(
 		'--formats <formats>',
@@ -481,6 +502,16 @@ program
 		'Texture slots to include (glob)',
 		{validator: program.STRING, default: '*'}
 	)
+	.option(
+		'--optimizer-max-rounds <rounds>',
+		'Maximum number of rounds to use for auto optimizer.',
+		{validator: program.NUMBER, default: 6}
+	)
+	.option(
+		'--optimizer-distance <distance>',
+		'Target Butteraugli distance for auto optimizer.',
+		{validator: program.NUMBER, default: 1.4}
+	)
 	.action(async ({args, options, logger}) => {
 		const doc = await io.read(args.input as string)
 			.setLogger(logger as unknown as Logger)
@@ -491,7 +522,7 @@ program
 // MOZJPEG
 program
 	.command('mozjpeg', 'MozJPEG texture compression')
-	.help('MozJPEG texture compression.')
+	.help(SQUOOSH_SUMMARY.replace('{VARIANT}', 'MozJPEG'))
 	.argument('<input>', INPUT_DESC)
 	.argument('<output>', OUTPUT_DESC)
 	.option(
@@ -501,13 +532,23 @@ program
 	)
 	.option(
 		'--quality <quality>',
-		'Quality, 0–100. Defaults to automatic optimization.',
+		'Quality, 0–100. Defaults to auto optimizer.',
 		{validator: program.NUMBER}
 	)
 	.option(
 		'--slots <slots>',
 		'Texture slots to include (glob)',
 		{validator: program.STRING, default: '*'}
+	)
+	.option(
+		'--optimizer-max-rounds <rounds>',
+		'Maximum number of rounds to use for auto optimizer.',
+		{validator: program.NUMBER, default: 6}
+	)
+	.option(
+		'--optimizer-distance <distance>',
+		'Target Butteraugli distance for auto optimizer.',
+		{validator: program.NUMBER, default: 1.4}
 	)
 	.action(async ({args, options, logger}) => {
 		const doc = await io.read(args.input as string)
