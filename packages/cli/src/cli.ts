@@ -7,8 +7,8 @@ import { ALL_EXTENSIONS, MaterialsUnlit } from '@gltf-transform/extensions';
 import { AOOptions, CenterOptions, DedupOptions, PartitionOptions, SequenceOptions, ao, center, dedup, metalRough, partition, sequence } from '@gltf-transform/lib';
 import { inspect } from './inspect';
 import { merge } from './merge';
+import { MozJPEGOptions, OxiPNGOptions, WebPOptions, mozjpeg, oxipng, webp } from './squoosh';
 import { ETC1S_DEFAULTS, Filter, Mode, UASTC_DEFAULTS, toktx } from './toktx';
-import { WebPOptions, towebp } from './towebp';
 import { formatBytes } from './util';
 import { validate } from './validate';
 
@@ -277,7 +277,7 @@ https://gltf-transform.donmccurdy.com/extensions.html#khr_texture_basisu-experim
 
 // ETC1S
 program
-	.command('etc1s', 'Compress textures with KTX + Basis ETC1S')
+	.command('etc1s', 'KTX + Basis ETC1S texture compression')
 	.help(
 		BASIS_SUMMARY
 			.replace('{VARIANT}', 'ETC1S (lower size, lower quality)')
@@ -296,7 +296,7 @@ UASTC for normal maps and ETC1S for other textures, for example.`.trim()),
 	.argument('<output>', OUTPUT_DESC)
 	.option(
 		'--slots <slots>',
-		'Texture slots to compress (glob expression)',
+		'Texture slots to include (glob)',
 		{validator: program.STRING, default: '*'}
 	)
 	.option (
@@ -358,7 +358,7 @@ UASTC for normal maps and ETC1S for other textures, for example.`.trim()),
 
 // UASTC
 program
-	.command('uastc', 'Compress textures with KTX + Basis UASTC')
+	.command('uastc', 'KTX + Basis UASTC texture compression')
 	.help(
 		BASIS_SUMMARY
 			.replace('{VARIANT}', 'UASTC (higher size, higher quality)')
@@ -373,7 +373,7 @@ textures where the quality is sufficient.`.trim()),
 	.argument('<output>', OUTPUT_DESC)
 	.option(
 		'--slots <slots>',
-		'Texture slots to compress (glob expression)',
+		'Texture slots to include (glob)',
 		{validator: program.STRING, default: '*'}
 	)
 	.option (
@@ -434,19 +434,85 @@ textures where the quality is sufficient.`.trim()),
 
 // WEBP
 program
-	.command('webp', 'Compress textures with WebP')
-	.help('Compress textures with WebP.')
+	.command('webp', 'WebP texture compression')
+	.help('WebP texture compression.')
 	.argument('<input>', INPUT_DESC)
 	.argument('<output>', OUTPUT_DESC)
 	.option(
+		'--formats <formats>',
+		'Texture formats to include',
+		{validator: ['png', 'jpeg', '*'], default: '*'}
+	)
+	.option(
+		'--quality <quality>',
+		'Quality, 0–100. Defaults to automatic optimization.',
+		{validator: program.NUMBER}
+	)
+	.option(
 		'--slots <slots>',
-		'Texture slots to compress (glob expression)',
+		'Texture slots to include (glob)',
 		{validator: program.STRING, default: '*'}
 	)
 	.action(async ({args, options, logger}) => {
 		const doc = await io.read(args.input as string)
 			.setLogger(logger as unknown as Logger)
-			.transform(towebp(options as unknown as WebPOptions));
+			.transform(webp(options as unknown as WebPOptions));
+		io.write(args.output as string, doc);
+	});
+
+// OXIPNG
+program
+	.command('oxipng', 'OxiPNG texture compression')
+	.help('OxiPNG texture compression.')
+	.argument('<input>', INPUT_DESC)
+	.argument('<output>', OUTPUT_DESC)
+	.option(
+		'--effort <effort>',
+		'Effort',
+		{validator: [0, 1, 2, 3], default: 2}
+	)
+	.option(
+		'--formats <formats>',
+		'Texture formats to include',
+		{validator: ['png', 'jpeg', '*'], default: 'png'}
+	)
+	.option(
+		'--slots <slots>',
+		'Texture slots to include (glob)',
+		{validator: program.STRING, default: '*'}
+	)
+	.action(async ({args, options, logger}) => {
+		const doc = await io.read(args.input as string)
+			.setLogger(logger as unknown as Logger)
+			.transform(oxipng(options as unknown as OxiPNGOptions));
+		io.write(args.output as string, doc);
+	});
+
+// MOZJPEG
+program
+	.command('mozjpeg', 'MozJPEG texture compression')
+	.help('MozJPEG texture compression.')
+	.argument('<input>', INPUT_DESC)
+	.argument('<output>', OUTPUT_DESC)
+	.option(
+		'--formats <formats>',
+		'Texture formats to include',
+		{validator: ['png', 'jpeg', '*'], default: 'jpeg'}
+	)
+	.option(
+		'--quality <quality>',
+		'Quality, 0–100. Defaults to automatic optimization.',
+		{validator: program.NUMBER}
+	)
+	.option(
+		'--slots <slots>',
+		'Texture slots to include (glob)',
+		{validator: program.STRING, default: '*'}
+	)
+	.action(async ({args, options, logger}) => {
+		const doc = await io.read(args.input as string)
+			.setLogger(logger as unknown as Logger)
+			.transform(mozjpeg(options as unknown as MozJPEGOptions));
 		io.write(args.output as string, doc);
 	});
 

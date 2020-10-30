@@ -1,5 +1,7 @@
 // Utilities.
 
+import { Document, Texture } from '@gltf-transform/core';
+
 export function formatLong(x: number): string {
     return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 }
@@ -26,4 +28,12 @@ export function formatHeader(title: string): string {
 	return ''
 		+ '\n ' + title.toUpperCase()
 		+ '\n ────────────────────────────────────────────';
+}
+
+/** Returns names of all texture slots using the given texture. */
+export function getTextureSlots (doc: Document, texture: Texture): string[] {
+	return doc.getGraph().getLinks()
+		.filter((link) => link.getChild() === texture)
+		.map((link) => link.getName())
+		.filter((slot) => slot !== 'texture')
 }
