@@ -460,12 +460,17 @@ program
 		{validator: program.NUMBER}
 	)
 	.option(
+		'--lossless <lossless>',
+		'Whether to use lossless compression mode.',
+		{validator: program.BOOLEAN, default: false}
+	)
+	.option(
 		'--slots <slots>',
 		'Texture slots to include (glob)',
 		{validator: program.STRING, default: '*'}
 	)
 	.option(
-		'--optimizer-max-rounds <rounds>',
+		'--optimizer-rounds <rounds>',
 		'Maximum number of rounds to use for auto optimizer.',
 		{validator: program.NUMBER, default: 6}
 	)

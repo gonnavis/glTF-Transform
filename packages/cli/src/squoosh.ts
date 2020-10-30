@@ -20,6 +20,7 @@ export interface WebPOptions {
 	slots?: string;
 	formats?: string;
 	quality?: number;
+	lossless?: boolean;
 }
 
 export interface MozJPEGOptions {
@@ -38,10 +39,10 @@ export interface OxiPNGOptions {
 	effort?: number;
 }
 
-const DEFAULT_OPTIONS = {rounds: 6, distance: 1.4};
-const WEBP_DEFAULT_OPTIONS: WebPOptions = {slots: '*', ...DEFAULT_OPTIONS};
-const MOZJPEG_DEFAULT_OPTIONS: MozJPEGOptions = {slots: '*', formats: 'jpeg', ...DEFAULT_OPTIONS};
-const OXIPNG_DEFAULT_OPTIONS: OxiPNGOptions = {slots: '*', formats: 'png', ...DEFAULT_OPTIONS};
+const DEFAULT_OPTIONS = {rounds: 6, distance: 1.4, slots: '*'};
+const WEBP_DEFAULT_OPTIONS: WebPOptions = {...DEFAULT_OPTIONS};
+const MOZJPEG_DEFAULT_OPTIONS: MozJPEGOptions = {formats: 'jpeg', ...DEFAULT_OPTIONS};
+const OXIPNG_DEFAULT_OPTIONS: OxiPNGOptions = {formats: 'png', ...DEFAULT_OPTIONS};
 
 interface SquooshOptions {
 	slots?: string;
@@ -63,10 +64,11 @@ export const webp = function (options: WebPOptions = WEBP_DEFAULT_OPTIONS): Tran
 
 	return (doc: Document): void => {
 		doc.createExtension(TextureWebP).setRequired(true);
+		const config = {quality: options.quality, lossless: options.lossless ? 1 : 0};
 		return squoosh({
 			formats: options.formats,
 			slots: options.slots,
-			flags: ['--webp', `"${JSON.stringify({quality: options.quality})}"`, ...createDefaultFlags(options)],
+			flags: ['--webp', `"${JSON.stringify(config)}"`, ...createDefaultFlags(options)],
 			outExtension: 'webp',
 			outMimeType: 'image/webp',
 		})(doc);
@@ -75,11 +77,12 @@ export const webp = function (options: WebPOptions = WEBP_DEFAULT_OPTIONS): Tran
 
 export const mozjpeg = function (options: MozJPEGOptions = MOZJPEG_DEFAULT_OPTIONS): Transform {
 	options = {...MOZJPEG_DEFAULT_OPTIONS, ...options};
+	const config = {quality: options.quality};
 	return (doc: Document): void => {
 		return squoosh({
 			formats: options.formats,
 			slots: options.slots,
-			flags: ['--mozjpeg', `"${JSON.stringify({quality: options.quality})}"`, ...createDefaultFlags(options)],
+			flags: ['--mozjpeg', `"${JSON.stringify(config)}"`, ...createDefaultFlags(options)],
 			outExtension: 'jpg',
 			outMimeType: 'image/jpeg',
 		})(doc);
@@ -88,11 +91,12 @@ export const mozjpeg = function (options: MozJPEGOptions = MOZJPEG_DEFAULT_OPTIO
 
 export const oxipng = function (options: OxiPNGOptions = OXIPNG_DEFAULT_OPTIONS): Transform {
 	options = {...OXIPNG_DEFAULT_OPTIONS, ...options};
+	const config = {effort: options.effort};
 	return (doc: Document): void => {
 		return squoosh({
 			formats: options.formats,
 			slots: options.slots,
-			flags: ['--oxipng', `"${JSON.stringify({effort: options.effort})}"`, ...createDefaultFlags(options)],
+			flags: ['--oxipng', `"${JSON.stringify(config)}"`, ...createDefaultFlags(options)],
 			outExtension: 'png',
 			outMimeType: 'image/png',
 		})(doc);
@@ -105,7 +109,9 @@ const squoosh = function (options: SquooshOptions): Transform {
 		const logger = doc.getLogger();
 
 		if (!commandExistsSync('squoosh-cli') && !process.env.CI) {
-			throw new Error('Command "squoosh-cli" not found. Please install "@squoosh/cli" from NPM.');
+			throw new Error(
+				'Command "squoosh-cli" not found. Please install "@squoosh/cli" from NPM.'
+			);
 		}
 
 		let numCompressed = 0;
@@ -113,18 +119,19 @@ const squoosh = function (options: SquooshOptions): Transform {
 		doc.getRoot()
 			.listTextures()
 			.forEach((texture, textureIndex) => {
-				const textureSlots = getTextureSlots(doc, texture);
-				const textureLabel = texture.getURI()
+				const slots = getTextureSlots(doc, texture);
+				const label = texture.getURI()
 					|| texture.getName()
 					|| `${textureIndex + 1}/${doc.getRoot().listTextures().length}`;
 
 				// Filter textures by 'formats' and 'slots' patterns.
-				if (options.formats !== '*' && texture.getMimeType() !== `image/${options.formats}`) {
-					logger.debug(`• Skipping ${textureLabel}, excluded by formats "${options.formats}".`);
+				if (options.formats !== '*'
+						&& texture.getMimeType() !== `image/${options.formats}`) {
+					logger.debug(`• Skipping ${label}, excluded by formats "${options.formats}".`);
 					return;
 				} else if (options.slots !== '*'
-						&& !textureSlots.find((slot) => minimatch(slot, options.slots, {nocase: true}))) {
-					logger.debug(`• Skipping ${textureLabel}, excluded by slots "${options.slots}".`);
+						&& !slots.find((slot) => minimatch(slot, options.slots, {nocase: true}))) {
+					logger.debug(`• Skipping ${label}, excluded by slots "${options.slots}".`);
 					return;
 				}
 
@@ -135,16 +142,23 @@ const squoosh = function (options: SquooshOptions): Transform {
 				const inPath = tmp.tmpNameSync({postfix: '.' + inExtension});
 				const outDir = tmp.dirSync().name;
 				const outPath = options.outExtension
-					? path.join(outDir, path.basename(inPath).replace('.' + inExtension, '.' + options.outExtension))
+					? path.join(outDir, path.basename(inPath)
+						.replace('.' + inExtension, '.' + options.outExtension))
 					: path.join(outDir, path.basename(inPath));
 
 				const inBytes = texture.getImage().byteLength;
 				fs.writeFileSync(inPath, Buffer.from(texture.getImage()));
 
-				logger.debug(`• squoosh-cli ${options.flags.join(' ')} --output-dir ${outDir} ${inPath}`);
+				logger.debug(
+					`• squoosh-cli ${options.flags.join(' ')} --output-dir ${outDir} ${inPath}`
+				);
 
 				// Run `squoosh-cli` CLI tool.
-				const {status, error} = spawnSync('squoosh-cli', [...options.flags, '--output-dir', outDir, inPath], {stdio: [process.stderr]});
+				const {status, error} = spawnSync(
+					'squoosh-cli',
+					[...options.flags, '--output-dir', outDir, inPath],
+					{stdio: [process.stderr]}
+				);
 
 				if (status !== 0) {
 					logger.error('• Texture compression failed.');
@@ -155,13 +169,18 @@ const squoosh = function (options: SquooshOptions): Transform {
 					.setImage(BufferUtils.trim(fs.readFileSync(outPath)))
 					.setMimeType('image/' + options.outExtension);
 				if (texture.getURI()) {
-					texture.setURI(FileUtils.basename(texture.getURI()) + '.' + options.outExtension);
+					texture.setURI(
+						FileUtils.basename(texture.getURI()) + '.' + options.outExtension
+					);
 				}
 
 				numCompressed++;
 
 				const outBytes = texture.getImage().byteLength;
-				logger.info(`• Texture ${textureLabel} (${textureSlots.join(', ')}) ${formatBytes(inBytes)} → ${formatBytes(outBytes)}.`);
+				logger.info(
+					`• Texture ${label} (${slots.join(', ')})`
+					+ ` ${formatBytes(inBytes)} → ${formatBytes(outBytes)}.`
+				);
 			});
 
 		if (numCompressed === 0) {
